@@ -1,0 +1,58 @@
+# Metric view: client engagement, digital, service and NPS (grain of source: household x month)
+# Rates are expressed per household-month so they are stable for any time window.
+version: 0.1
+source: __CATALOG__.wm_gold.fct_household_monthly
+joins:
+  - name: advisor
+    source: __CATALOG__.wm_gold.dim_advisor
+    on: source.advisor_id = advisor.advisor_id
+dimensions:
+  - name: Month
+    expr: source.month_start
+  - name: Region
+    expr: advisor.region
+  - name: Branch
+    expr: advisor.branch_name
+  - name: Advisor
+    expr: advisor.advisor_name
+  - name: Client Segment
+    expr: source.segment
+  - name: Tenure Band
+    expr: source.tenure_band
+  - name: Province
+    expr: source.province
+measures:
+  - name: Active Households
+    expr: COUNT(DISTINCT CASE WHEN source.end_aum_cad > 0 THEN source.household_id END)
+  - name: Household Months
+    expr: COUNT(1)
+  - name: Interactions
+    expr: SUM(source.interactions)
+  - name: Interactions per Household per Month
+    expr: try_divide(SUM(source.interactions), COUNT(1))
+  - name: Meeting Coverage %
+    expr: try_divide(SUM(CASE WHEN source.meetings > 0 THEN 1 ELSE 0 END), COUNT(1))
+  - name: Financial Plans Delivered
+    expr: SUM(source.financial_plans)
+  - name: Digital Adoption %
+    expr: try_divide(SUM(source.digital_active_flag), COUNT(1))
+  - name: Digital Sessions
+    expr: SUM(source.digital_sessions)
+  - name: Service Cases
+    expr: SUM(source.service_cases)
+  - name: Complaints
+    expr: SUM(source.complaints)
+  - name: Complaints per 100 Households (Monthly)
+    expr: try_divide(SUM(source.complaints) * 100, COUNT(1))
+  - name: SLA Breach Rate
+    expr: try_divide(SUM(source.sla_breaches), SUM(source.service_cases))
+  - name: NPS
+    expr: try_divide((SUM(source.promoters) - SUM(source.detractors)) * 100, SUM(source.nps_responses))
+  - name: NPS Responses
+    expr: SUM(source.nps_responses)
+  - name: New Households
+    expr: SUM(source.new_household_flag)
+  - name: Attrited Households
+    expr: SUM(source.attrition_flag)
+  - name: Attrition Rate (Annualized)
+    expr: try_divide(SUM(source.attrition_flag) * 12, COUNT(1))

@@ -1,0 +1,27 @@
+﻿resources:
+  dashboards:
+    wm_performance_dashboard:
+      display_name: "Wealth Management Performance (${bundle.target})"
+      file_path: ../dashboards/wm_performance.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      embed_credentials: false
+
+  apps:
+    wm_self_serve_app:
+      name: wm-insights-${bundle.target}
+      description: Self-serve advisor book explorer, metric glossary and governed data export
+      source_code_path: ../src/self_serve/app
+      config:
+        command: [ "streamlit", "run", "app.py" ]
+        env:
+          - name: WM_CATALOG
+            value: ${var.catalog}
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+      user_api_scopes: [ sql ]

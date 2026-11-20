@@ -1,0 +1,2276 @@
+{
+  "datasets": [
+    {
+      "name": "kpi_latest",
+      "displayName": "Headline KPIs (last complete month)",
+      "queryLines": [
+        "SELECT\n",
+        "  MEASURE(`Month-End AUM`)                     AS month_end_aum,\n",
+        "  MEASURE(`Net New Assets`)                    AS net_new_assets,\n",
+        "  MEASURE(`Organic Growth Rate (Annualized)`)  AS organic_growth,\n",
+        "  MEASURE(`Return on Assets (bps)`)            AS roa_bps,\n",
+        "  MEASURE(`Total Revenue`)                     AS total_revenue\n",
+        "FROM wm_semantic.wm_aum_flows_revenue\n",
+        "WHERE `Month` = add_months(trunc(current_date(), 'MM'), -1)\n"
+      ]
+    },
+    {
+      "name": "flows_monthly",
+      "displayName": "AUM bridge by month",
+      "queryLines": [
+        "SELECT `Month` AS month, `Region` AS region, `Client Segment` AS segment, `Program` AS program,\n",
+        "       MEASURE(`Net New Assets`)   AS net_new_assets,\n",
+        "       MEASURE(`Gross Inflows`)    AS gross_inflows,\n",
+        "       MEASURE(`Gross Outflows`)   AS gross_outflows,\n",
+        "       MEASURE(`Market Movement`)  AS market_movement,\n",
+        "       MEASURE(`Month-End AUM`)    AS month_end_aum,\n",
+        "       MEASURE(`Total Revenue`)    AS total_revenue\n",
+        "FROM wm_semantic.wm_aum_flows_revenue\n",
+        "GROUP BY ALL\n"
+      ]
+    },
+    {
+      "name": "aum_daily",
+      "displayName": "Daily AUM",
+      "queryLines": [
+        "SELECT as_of_date, region, segment, program, sum(aum_cad) AS aum_cad\n",
+        "FROM wm_semantic.v_aum_daily\n",
+        "GROUP BY ALL\n"
+      ]
+    },
+    {
+      "name": "asset_mix",
+      "displayName": "Asset mix (latest month end)",
+      "queryLines": [
+        "SELECT asset_class, segment, sum(market_value_cad) AS market_value_cad\n",
+        "FROM wm_semantic.v_asset_mix\n",
+        "WHERE as_of_date = (SELECT max(as_of_date) FROM wm_semantic.v_asset_mix)\n",
+        "GROUP BY ALL\n"
+      ]
+    },
+    {
+      "name": "scorecard",
+      "displayName": "Advisor scorecard (last complete month)",
+      "queryLines": [
+        "SELECT advisor_name, region, branch_name, households, end_aum_cad, net_flows_cad,\n",
+        "       round(organic_growth_annualized * 100, 1) AS organic_growth_pct,\n",
+        "       round(roa_bps, 1) AS roa_bps,\n",
+        "       round(meeting_coverage_pct * 100, 1) AS meeting_coverage_pct,\n",
+        "       round(digital_adoption_pct * 100, 1) AS digital_adoption_pct,\n",
+        "       round(complaints_per_100_households, 2) AS complaints_per_100_hh,\n",
+        "       quantity_score, quality_score\n",
+        "FROM wm_semantic.v_advisor_scorecard\n",
+        "WHERE month_start = add_months(trunc(current_date(), 'MM'), -1)\n"
+      ]
+    },
+    {
+      "name": "experience_monthly",
+      "displayName": "Client experience by month",
+      "queryLines": [
+        "SELECT `Month` AS month, `Region` AS region, `Client Segment` AS segment,\n",
+        "       MEASURE(`NPS`)                                      AS nps,\n",
+        "       MEASURE(`NPS Responses`)                            AS nps_responses,\n",
+        "       MEASURE(`Digital Adoption %`)                       AS digital_adoption,\n",
+        "       MEASURE(`Meeting Coverage %`)                       AS meeting_coverage,\n",
+        "       MEASURE(`Complaints per 100 Households (Monthly)`)  AS complaints_per_100_hh,\n",
+        "       MEASURE(`Attrition Rate (Annualized)`)              AS attrition_rate\n",
+        "FROM wm_semantic.wm_client_experience\n",
+        "GROUP BY ALL\n"
+      ]
+    },
+    {
+      "name": "service_monthly",
+      "displayName": "Service quality by month",
+      "queryLines": [
+        "SELECT `Month` AS month, `Region` AS region, `Case Category` AS category,\n",
+        "       MEASURE(`Cases Opened`) AS cases_opened,\n",
+        "       MEASURE(`Average Resolution Hours`) AS avg_resolution_hours,\n",
+        "       MEASURE(`SLA Breach Rate`) AS sla_breach_rate\n",
+        "FROM wm_semantic.wm_service_quality\n",
+        "GROUP BY ALL\n"
+      ]
+    },
+    {
+      "name": "campaign_impact",
+      "displayName": "Campaign incremental impact",
+      "queryLines": [
+        "SELECT campaign_id, campaign_name, metric, dimension, verdict,\n",
+        "       round(did_estimate, 3) AS incremental_per_hh_month,\n",
+        "       round(ci_low, 3) AS ci_low, round(ci_high, 3) AS ci_high,\n",
+        "       round(relative_lift * 100, 1) AS relative_lift_pct,\n",
+        "       round(total_incremental, 0) AS total_incremental,\n",
+        "       n_treatment, n_control, pre_trend_ok, is_primary_metric\n",
+        "FROM wm_semantic.v_campaign_impact\n"
+      ]
+    },
+    {
+      "name": "campaign_trend",
+      "displayName": "Campaign treatment vs control trend",
+      "queryLines": [
+        "SELECT campaign_id, campaign_name, assignment_group, rel_month,\n",
+        "       avg_net_flows_cad, avg_digital_sessions, avg_interactions, avg_complaints\n",
+        "FROM wm_semantic.v_campaign_trend\n"
+      ]
+    },
+    {
+      "name": "platform_health",
+      "displayName": "Latest data-health checks",
+      "queryLines": [
+        "SELECT check_name, category, severity, status, observed_value, threshold, details, checked_at\n",
+        "FROM wm_semantic.v_platform_health\n",
+        "WHERE run_id = (SELECT max_by(run_id, checked_at) FROM wm_semantic.v_platform_health)\n"
+      ]
+    },
+    {
+      "name": "health_history",
+      "displayName": "Data-health history",
+      "queryLines": [
+        "SELECT date(checked_at) AS check_date, category,\n",
+        "       count_if(status = 'FAIL') AS failed_checks, count(*) AS checks\n",
+        "FROM wm_semantic.v_platform_health\n",
+        "GROUP BY ALL\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Executive Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "hdr_overview",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Wealth Management \u2014 Executive Overview",
+                "Certified metrics from the `wm_semantic` layer. KPIs show the **last complete month**; AUM is semi-additive (month-end), flows and revenue are additive."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_aum",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_latest",
+                  "fields": [
+                    {
+                      "name": "month_end_aum",
+                      "expression": "SUM(`month_end_aum`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "month_end_aum",
+                  "displayName": "Month-End AUM"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Month-End AUM"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_nna",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_latest",
+                  "fields": [
+                    {
+                      "name": "net_new_assets",
+                      "expression": "SUM(`net_new_assets`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "net_new_assets",
+                  "displayName": "Net New Assets"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net New Assets"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_ogr",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_latest",
+                  "fields": [
+                    {
+                      "name": "organic_growth",
+                      "expression": "SUM(`organic_growth`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "organic_growth",
+                  "displayName": "Organic Growth (ann.)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Organic Growth (ann.)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_roa",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_latest",
+                  "fields": [
+                    {
+                      "name": "roa_bps",
+                      "expression": "SUM(`roa_bps`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "roa_bps",
+                  "displayName": "ROA (bps)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "ROA (bps)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_rev",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_latest",
+                  "fields": [
+                    {
+                      "name": "total_revenue",
+                      "expression": "SUM(`total_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_revenue",
+                  "displayName": "Revenue"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Revenue"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "flt_region",
+            "queries": [
+              {
+                "name": "flt_region_flows_monthly",
+                "query": {
+                  "datasetName": "flows_monthly",
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "flt_region_aum_daily",
+                "query": {
+                  "datasetName": "aum_daily",
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "region",
+                    "displayName": "Region",
+                    "queryName": "flt_region_flows_monthly"
+                  },
+                  {
+                    "fieldName": "region",
+                    "displayName": "Region",
+                    "queryName": "flt_region_aum_daily"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Region"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "flt_segment",
+            "queries": [
+              {
+                "name": "flt_segment_flows_monthly",
+                "query": {
+                  "datasetName": "flows_monthly",
+                  "fields": [
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "flt_segment_aum_daily",
+                "query": {
+                  "datasetName": "aum_daily",
+                  "fields": [
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "segment",
+                    "displayName": "Client segment",
+                    "queryName": "flt_segment_flows_monthly"
+                  },
+                  {
+                    "fieldName": "segment",
+                    "displayName": "Client segment",
+                    "queryName": "flt_segment_aum_daily"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Client segment"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "aum_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "aum_daily",
+                  "fields": [
+                    {
+                      "name": "as_of_date",
+                      "expression": "`as_of_date`"
+                    },
+                    {
+                      "name": "sum(aum_cad)",
+                      "expression": "SUM(`aum_cad`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "as_of_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "sum(aum_cad)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "AUM (CAD)"
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Segment"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily AUM by segment"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "nna_by_segment",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "flows_monthly",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "sum(net_new_assets)",
+                      "expression": "SUM(`net_new_assets`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "sum(net_new_assets)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net new assets (CAD)"
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Segment"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net new assets by month and segment"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "market_vs_flows",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "flows_monthly",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "sum(market_movement)",
+                      "expression": "SUM(`market_movement`)"
+                    },
+                    {
+                      "name": "program",
+                      "expression": "`program`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "sum(market_movement)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Market movement (CAD)"
+                },
+                "color": {
+                  "fieldName": "program",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Program"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Market movement by month (AUM bridge component)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 12,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "asset_mix",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "asset_mix",
+                  "fields": [
+                    {
+                      "name": "asset_class",
+                      "expression": "`asset_class`"
+                    },
+                    {
+                      "name": "sum(market_value_cad)",
+                      "expression": "SUM(`market_value_cad`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "asset_class",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Asset class"
+                },
+                "y": {
+                  "fieldName": "sum(market_value_cad)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Market value (CAD)"
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Segment"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Asset mix at latest month end"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "advisors",
+      "displayName": "Advisor Scorecard",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "hdr_adv",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Advisor Balanced Scorecard",
+                "Quantity score = percentile of organic growth and ROA within region. Quality score = percentile of meeting coverage, low complaints and low SLA breaches. Row-level security: advisors see only their own book."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "adv_quadrant",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "scorecard",
+                  "fields": [
+                    {
+                      "name": "quantity_score",
+                      "expression": "`quantity_score`"
+                    },
+                    {
+                      "name": "quality_score",
+                      "expression": "`quality_score`"
+                    },
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    },
+                    {
+                      "name": "advisor_name",
+                      "expression": "`advisor_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "quantity_score",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Quantity score"
+                },
+                "y": {
+                  "fieldName": "quality_score",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Quality score"
+                },
+                "color": {
+                  "fieldName": "region",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Region"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quantity vs. quality (last complete month)",
+                "showDescription": true,
+                "description": "Top-right = growing the book without sacrificing client experience"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "adv_growth",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "scorecard",
+                  "fields": [
+                    {
+                      "name": "advisor_name",
+                      "expression": "`advisor_name`"
+                    },
+                    {
+                      "name": "sum(net_flows_cad)",
+                      "expression": "SUM(`net_flows_cad`)"
+                    },
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "advisor_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Advisor"
+                },
+                "y": {
+                  "fieldName": "sum(net_flows_cad)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net flows (CAD)"
+                },
+                "color": {
+                  "fieldName": "region",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Region"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net flows by advisor"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "adv_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "scorecard",
+                  "fields": [
+                    {
+                      "name": "advisor_name",
+                      "expression": "`advisor_name`"
+                    },
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    },
+                    {
+                      "name": "branch_name",
+                      "expression": "`branch_name`"
+                    },
+                    {
+                      "name": "households",
+                      "expression": "`households`"
+                    },
+                    {
+                      "name": "end_aum_cad",
+                      "expression": "`end_aum_cad`"
+                    },
+                    {
+                      "name": "net_flows_cad",
+                      "expression": "`net_flows_cad`"
+                    },
+                    {
+                      "name": "organic_growth_pct",
+                      "expression": "`organic_growth_pct`"
+                    },
+                    {
+                      "name": "roa_bps",
+                      "expression": "`roa_bps`"
+                    },
+                    {
+                      "name": "meeting_coverage_pct",
+                      "expression": "`meeting_coverage_pct`"
+                    },
+                    {
+                      "name": "digital_adoption_pct",
+                      "expression": "`digital_adoption_pct`"
+                    },
+                    {
+                      "name": "complaints_per_100_hh",
+                      "expression": "`complaints_per_100_hh`"
+                    },
+                    {
+                      "name": "quantity_score",
+                      "expression": "`quantity_score`"
+                    },
+                    {
+                      "name": "quality_score",
+                      "expression": "`quality_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "advisor_name",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Advisor",
+                    "displayName": "Advisor",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "region",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Region",
+                    "displayName": "Region",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "branch_name",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Branch",
+                    "displayName": "Branch",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "households",
+                    "type": "integer",
+                    "displayAs": "integer",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Households",
+                    "displayName": "Households",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "end_aum_cad",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "AUM",
+                    "displayName": "AUM",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "net_flows_cad",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Net flows",
+                    "displayName": "Net flows",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "organic_growth_pct",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Organic growth %",
+                    "displayName": "Organic growth %",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "roa_bps",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "ROA bps",
+                    "displayName": "ROA bps",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "meeting_coverage_pct",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Meeting coverage %",
+                    "displayName": "Meeting coverage %",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "digital_adoption_pct",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "Digital adoption %",
+                    "displayName": "Digital adoption %",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "complaints_per_100_hh",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100010,
+                    "title": "Complaints /100 HH",
+                    "displayName": "Complaints /100 HH",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "quantity_score",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100011,
+                    "title": "Quantity score",
+                    "displayName": "Quantity score",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "quality_score",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100012,
+                    "title": "Quality score",
+                    "displayName": "Quality score",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  }
+                ]
+              },
+              "itemsPerPage": 25,
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Advisor scorecard"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 9
+          }
+        }
+      ]
+    },
+    {
+      "name": "experience",
+      "displayName": "Client Experience & Service",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "hdr_exp",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Client Experience & Service Quality",
+                "Quality dimension: NPS (show with response counts), engagement, complaints, SLA adherence."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "flt_exp_region",
+            "queries": [
+              {
+                "name": "flt_exp_region_experience_monthly",
+                "query": {
+                  "datasetName": "experience_monthly",
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "flt_exp_region_service_monthly",
+                "query": {
+                  "datasetName": "service_monthly",
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "region",
+                    "displayName": "Region",
+                    "queryName": "flt_exp_region_experience_monthly"
+                  },
+                  {
+                    "fieldName": "region",
+                    "displayName": "Region",
+                    "queryName": "flt_exp_region_service_monthly"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Region"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "nps_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "experience_monthly",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "avg(nps)",
+                      "expression": "AVG(`nps`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "avg(nps)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "NPS"
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Segment"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "NPS by segment"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "digital_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "experience_monthly",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "avg(digital_adoption)",
+                      "expression": "AVG(`digital_adoption`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "avg(digital_adoption)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Digital adoption"
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Segment"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Digital adoption by segment"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "complaints_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "experience_monthly",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "avg(complaints_per_100_hh)",
+                      "expression": "AVG(`complaints_per_100_hh`)"
+                    },
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "avg(complaints_per_100_hh)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Complaints per 100 HH"
+                },
+                "color": {
+                  "fieldName": "region",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Region"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Complaints per 100 households"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "sla_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "service_monthly",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "avg(sla_breach_rate)",
+                      "expression": "AVG(`sla_breach_rate`)"
+                    },
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "avg(sla_breach_rate)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "SLA breach rate"
+                },
+                "color": {
+                  "fieldName": "category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Category"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "72-hour SLA breach rate by case category"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 9,
+            "width": 3,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "impact",
+      "displayName": "Initiative Impact",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "hdr_imp",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Incremental Impact of Initiatives",
+                "Randomized treatment vs. control, household-level difference-in-differences with 95% bootstrap CI. Quality metrics are guardrails: a significant adverse move is flagged."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "flt_campaign",
+            "queries": [
+              {
+                "name": "flt_campaign_campaign_impact",
+                "query": {
+                  "datasetName": "campaign_impact",
+                  "fields": [
+                    {
+                      "name": "campaign_name",
+                      "expression": "`campaign_name`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "flt_campaign_campaign_trend",
+                "query": {
+                  "datasetName": "campaign_trend",
+                  "fields": [
+                    {
+                      "name": "campaign_name",
+                      "expression": "`campaign_name`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "campaign_name",
+                    "displayName": "Campaign",
+                    "queryName": "flt_campaign_campaign_impact"
+                  },
+                  {
+                    "fieldName": "campaign_name",
+                    "displayName": "Campaign",
+                    "queryName": "flt_campaign_campaign_trend"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Campaign"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "camp_flows",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "campaign_trend",
+                  "fields": [
+                    {
+                      "name": "rel_month",
+                      "expression": "`rel_month`"
+                    },
+                    {
+                      "name": "avg(avg_net_flows_cad)",
+                      "expression": "AVG(`avg_net_flows_cad`)"
+                    },
+                    {
+                      "name": "assignment_group",
+                      "expression": "`assignment_group`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "rel_month",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Months from launch"
+                },
+                "y": {
+                  "fieldName": "avg(avg_net_flows_cad)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg net flows / household"
+                },
+                "color": {
+                  "fieldName": "assignment_group",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Assignment Group"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net flows per household: treatment vs control"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "camp_digital",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "campaign_trend",
+                  "fields": [
+                    {
+                      "name": "rel_month",
+                      "expression": "`rel_month`"
+                    },
+                    {
+                      "name": "avg(avg_digital_sessions)",
+                      "expression": "AVG(`avg_digital_sessions`)"
+                    },
+                    {
+                      "name": "assignment_group",
+                      "expression": "`assignment_group`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "rel_month",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Months from launch"
+                },
+                "y": {
+                  "fieldName": "avg(avg_digital_sessions)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg sessions / household"
+                },
+                "color": {
+                  "fieldName": "assignment_group",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Assignment Group"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Digital sessions per household: treatment vs control"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "camp_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "campaign_impact",
+                  "fields": [
+                    {
+                      "name": "campaign_name",
+                      "expression": "`campaign_name`"
+                    },
+                    {
+                      "name": "metric",
+                      "expression": "`metric`"
+                    },
+                    {
+                      "name": "dimension",
+                      "expression": "`dimension`"
+                    },
+                    {
+                      "name": "incremental_per_hh_month",
+                      "expression": "`incremental_per_hh_month`"
+                    },
+                    {
+                      "name": "ci_low",
+                      "expression": "`ci_low`"
+                    },
+                    {
+                      "name": "ci_high",
+                      "expression": "`ci_high`"
+                    },
+                    {
+                      "name": "relative_lift_pct",
+                      "expression": "`relative_lift_pct`"
+                    },
+                    {
+                      "name": "total_incremental",
+                      "expression": "`total_incremental`"
+                    },
+                    {
+                      "name": "verdict",
+                      "expression": "`verdict`"
+                    },
+                    {
+                      "name": "pre_trend_ok",
+                      "expression": "`pre_trend_ok`"
+                    },
+                    {
+                      "name": "n_treatment",
+                      "expression": "`n_treatment`"
+                    },
+                    {
+                      "name": "n_control",
+                      "expression": "`n_control`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "campaign_name",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Campaign",
+                    "displayName": "Campaign",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "metric",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Metric",
+                    "displayName": "Metric",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "dimension",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Dimension",
+                    "displayName": "Dimension",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "incremental_per_hh_month",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Incremental / HH / month",
+                    "displayName": "Incremental / HH / month",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "ci_low",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "95% CI low",
+                    "displayName": "95% CI low",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "ci_high",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "95% CI high",
+                    "displayName": "95% CI high",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "relative_lift_pct",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Lift %",
+                    "displayName": "Lift %",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "total_incremental",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Total incremental",
+                    "displayName": "Total incremental",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "verdict",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Verdict",
+                    "displayName": "Verdict",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "pre_trend_ok",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "Parallel pre-trend",
+                    "displayName": "Parallel pre-trend",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "n_treatment",
+                    "type": "integer",
+                    "displayAs": "integer",
+                    "visible": true,
+                    "order": 100010,
+                    "title": "Treated HH",
+                    "displayName": "Treated HH",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "n_control",
+                    "type": "integer",
+                    "displayAs": "integer",
+                    "visible": true,
+                    "order": 100011,
+                    "title": "Control HH",
+                    "displayName": "Control HH",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  }
+                ]
+              },
+              "itemsPerPage": 25,
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Impact results"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 8
+          }
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "displayName": "Platform Health",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "hdr_ops",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Platform Health",
+                "Freshness, volume, reconciliation, integrity and Lakeflow expectation checks from the daily run. Critical failures stop the job before numbers reach this dashboard."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "ops_hist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "health_history",
+                  "fields": [
+                    {
+                      "name": "check_date",
+                      "expression": "`check_date`"
+                    },
+                    {
+                      "name": "sum(failed_checks)",
+                      "expression": "SUM(`failed_checks`)"
+                    },
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "check_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "sum(failed_checks)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Failed checks"
+                },
+                "color": {
+                  "fieldName": "category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Category"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Failed checks per run by category"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "ops_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "platform_health",
+                  "fields": [
+                    {
+                      "name": "check_name",
+                      "expression": "`check_name`"
+                    },
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    },
+                    {
+                      "name": "observed_value",
+                      "expression": "`observed_value`"
+                    },
+                    {
+                      "name": "threshold",
+                      "expression": "`threshold`"
+                    },
+                    {
+                      "name": "details",
+                      "expression": "`details`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "check_name",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Check",
+                    "displayName": "Check",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "category",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Category",
+                    "displayName": "Category",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "severity",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Severity",
+                    "displayName": "Severity",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "status",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Status",
+                    "displayName": "Status",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "observed_value",
+                    "type": "float",
+                    "displayAs": "float",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Observed",
+                    "displayName": "Observed",
+                    "alignContent": "right",
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "threshold",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Threshold",
+                    "displayName": "Threshold",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  },
+                  {
+                    "fieldName": "details",
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Details",
+                    "displayName": "Details",
+                    "alignContent": "left",
+                    "allowSearch": true,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ]
+                  }
+                ]
+              },
+              "itemsPerPage": 25,
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Latest run"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 6,
+            "height": 10
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "LEFT"
+    }
+  }
+}

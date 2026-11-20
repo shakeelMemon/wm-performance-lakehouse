@@ -1,0 +1,31 @@
+resources:
+  pipelines:
+    wm_reporting_pipeline:
+      name: wm-reporting-pipeline-${bundle.target}
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.wm_silver.name}   # default schema; tables use fully qualified names
+      serverless: true
+      channel: CURRENT
+      continuous: false
+      configuration:
+        wm.catalog: ${var.catalog}
+        wm.landing_path: /Volumes/${var.catalog}/wm_landing/raw
+        wm.src_root: ${workspace.file_path}/src
+      libraries:
+        - file:
+            path: ../src/pipelines/bronze/bronze_ingest.py
+        - file:
+            path: ../src/pipelines/silver/silver_entities.py
+        - file:
+            path: ../src/pipelines/silver/silver_facts.py
+        - file:
+            path: ../src/pipelines/gold/gold_dimensions.sql
+        - file:
+            path: ../src/pipelines/gold/gold_performance.sql
+        - file:
+            path: ../src/pipelines/gold/gold_advisor_client.sql
+        - file:
+            path: ../src/pipelines/gold/gold_campaign.sql
+      notifications:
+        - email_recipients: [ "${var.notification_email}" ]
+          alerts: [ on-update-failure, on-update-fatal-failure, on-flow-failure ]

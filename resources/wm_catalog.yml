@@ -1,0 +1,36 @@
+# Unity Catalog objects managed by the bundle. The catalog itself is created once by a
+# metastore admin (see docs/runbook.md); schemas and the landing volume are bundle-owned.
+resources:
+  schemas:
+    wm_landing:
+      catalog_name: ${var.catalog}
+      name: wm_landing
+      comment: Raw landing zone (UC volume) for custodian, CRM, market-data, digital and survey files
+    wm_bronze:
+      catalog_name: ${var.catalog}
+      name: wm_bronze
+      comment: Bronze - raw append-only ingestion via Auto Loader, schema-on-read, full lineage columns
+    wm_silver:
+      catalog_name: ${var.catalog}
+      name: wm_silver
+      comment: Silver - validated, de-duplicated, conformed entities with SCD2 history and quarantine tables
+    wm_gold:
+      catalog_name: ${var.catalog}
+      name: wm_gold
+      comment: Gold - standardized reporting datasets (conformed dimensions and facts) for Wealth Management
+    wm_semantic:
+      catalog_name: ${var.catalog}
+      name: wm_semantic
+      comment: Semantic layer - certified metric views, metric catalog and secure serving views
+    wm_ops:
+      catalog_name: ${var.catalog}
+      name: wm_ops
+      comment: Operational health - data quality results, freshness SLAs, reconciliations
+
+  volumes:
+    wm_raw:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.wm_landing.name}
+      name: raw
+      volume_type: MANAGED
+      comment: Landing files, one folder per upstream feed

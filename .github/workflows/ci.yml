@@ -1,0 +1,62 @@
+name: CI / CD
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit + local end-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests tools
+      - name: Dashboard is generated from code
+        run: |
+          python tools/build_dashboard.py
+          git diff --exit-code dashboards/
+      - run: pytest
+
+  deploy-test:
+    name: Validate & deploy to test
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: test
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate -t test
+      - run: databricks bundle deploy -t test
+      - name: Smoke run (tiny data)
+        run: databricks bundle run wm_bootstrap -t test --params scale=tiny
+
+  deploy-prod:
+    name: Deploy to prod (manual approval)
+    needs: deploy-test
+    runs-on: ubuntu-latest
+    environment: prod            # protected environment -> required reviewers
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST_PROD }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID_PROD }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET_PROD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate -t prod
+      - run: databricks bundle deploy -t prod

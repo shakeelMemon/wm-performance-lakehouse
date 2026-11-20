@@ -1,0 +1,226 @@
+# Certified metric catalog: one business definition per metric, one owner, one source.
+# Published to {catalog}.wm_semantic.metric_catalog and rendered into docs/metric_definitions.md.
+# `metric_view` + `measure` point at the governed implementation — never re-implement a
+# certified metric in a dashboard or notebook.
+metrics:
+  - id: aum_month_end
+    name: Month-End AUM
+    dimension: Quantity
+    category: Assets
+    definition: Market value of all funded client accounts at the last business day of the month, in CAD.
+    formula: SUM(end_aum_cad)
+    unit: CAD
+    direction: higher_is_better
+    grain: month (semi-additive — do not sum across months)
+    metric_view: wm_aum_flows_revenue
+    measure: Month-End AUM
+    owner: WM Finance
+    certified: true
+  - id: avg_aum
+    name: Average AUM
+    dimension: Quantity
+    category: Assets
+    definition: Average of beginning and ending AUM, averaged over the months selected. Denominator for yield metrics.
+    formula: SUM((begin_aum_cad + end_aum_cad)/2) / COUNT(DISTINCT month_start)
+    unit: CAD
+    direction: higher_is_better
+    grain: any period
+    metric_view: wm_aum_flows_revenue
+    measure: Average AUM
+    owner: WM Finance
+    certified: true
+  - id: nna
+    name: Net New Assets
+    dimension: Quantity
+    category: Flows
+    definition: External client money in (deposits, transfers-in) minus money out (withdrawals, transfers-out). Excludes market movement, income, fees and trades.
+    formula: SUM(net_flows_cad)
+    unit: CAD
+    direction: higher_is_better
+    grain: any period (additive)
+    metric_view: wm_aum_flows_revenue
+    measure: Net New Assets
+    owner: WM Finance
+    certified: true
+  - id: organic_growth
+    name: Organic Growth Rate (Annualized)
+    dimension: Quantity
+    category: Flows
+    definition: Net new assets as a share of beginning AUM, annualized. Isolates growth the business generated from market performance.
+    formula: SUM(net_flows_cad) * 12 / SUM(begin_aum_cad)
+    unit: percent
+    direction: higher_is_better
+    grain: any period
+    metric_view: wm_aum_flows_revenue
+    measure: Organic Growth Rate (Annualized)
+    owner: WM Strategy
+    certified: true
+  - id: market_movement
+    name: Market Movement
+    dimension: Quantity
+    category: Assets
+    definition: Change in AUM not explained by external flows (investment returns net of fees and commissions). Closes the AUM bridge Begin + NNA + Market = End.
+    formula: SUM(end_aum_cad - begin_aum_cad - net_flows_cad)
+    unit: CAD
+    direction: neutral
+    grain: any period (additive)
+    metric_view: wm_aum_flows_revenue
+    measure: Market Movement
+    owner: WM Finance
+    certified: true
+  - id: total_revenue
+    name: Total Revenue
+    dimension: Quantity
+    category: Revenue
+    definition: Fee-based and managed-program fees charged plus trading commissions.
+    formula: SUM(fee_revenue_cad + commission_revenue_cad)
+    unit: CAD
+    direction: higher_is_better
+    grain: any period (additive)
+    metric_view: wm_aum_flows_revenue
+    measure: Total Revenue
+    owner: WM Finance
+    certified: true
+  - id: roa
+    name: Return on Assets (bps)
+    dimension: Quantity
+    category: Revenue
+    definition: Annualized revenue yield on average AUM, in basis points.
+    formula: SUM(total_revenue_cad) * 12 * 10000 / SUM((begin_aum_cad + end_aum_cad)/2)
+    unit: bps
+    direction: higher_is_better
+    grain: any period
+    metric_view: wm_aum_flows_revenue
+    measure: Return on Assets (bps)
+    owner: WM Finance
+    certified: true
+  - id: twr
+    name: Time-Weighted Return
+    dimension: Quantity
+    category: Performance
+    definition: Net-of-fee account return that neutralizes the timing of client cash flows (daily returns geometrically linked). Standard for comparing investment performance.
+    formula: EXP(SUM(LN(1 + daily_return))) - 1, daily_return = (MV_t - MV_t-1 - Flow_t) / MV_t-1
+    unit: percent
+    direction: higher_is_better
+    grain: account x month (link months for longer periods)
+    metric_view: gold.fct_account_monthly_performance
+    measure: twr
+    owner: WM Investment Performance
+    certified: true
+  - id: active_households
+    name: Active Households
+    dimension: Quantity
+    category: Clients
+    definition: Distinct households with at least one funded account at month end.
+    formula: COUNT(DISTINCT household_id WHERE end_aum_cad > 0)
+    unit: count
+    direction: higher_is_better
+    grain: month
+    metric_view: wm_client_experience
+    measure: Active Households
+    owner: WM Client Strategy
+    certified: true
+  - id: meeting_coverage
+    name: Meeting Coverage %
+    dimension: Quality
+    category: Engagement
+    definition: Share of household-months with at least one substantive meeting (meeting, portfolio review or financial plan).
+    formula: SUM(meetings > 0) / COUNT(household-months)
+    unit: percent
+    direction: higher_is_better
+    grain: any period
+    metric_view: wm_client_experience
+    measure: Meeting Coverage %
+    owner: WM Client Strategy
+    certified: true
+  - id: digital_adoption
+    name: Digital Adoption %
+    dimension: Quantity
+    category: Digital
+    definition: Share of household-months with at least one web or mobile session.
+    formula: SUM(digital_active_flag) / COUNT(household-months)
+    unit: percent
+    direction: higher_is_better
+    grain: any period
+    metric_view: wm_client_experience
+    measure: Digital Adoption %
+    owner: WM Digital
+    certified: true
+  - id: complaints_rate
+    name: Complaints per 100 Households (Monthly)
+    dimension: Quality
+    category: Service
+    definition: Formal complaints opened per 100 households per month.
+    formula: SUM(complaints) * 100 / COUNT(household-months)
+    unit: rate
+    direction: lower_is_better
+    grain: any period
+    metric_view: wm_client_experience
+    measure: Complaints per 100 Households (Monthly)
+    owner: WM Client Experience
+    certified: true
+  - id: sla_breach_rate
+    name: SLA Breach Rate
+    dimension: Quality
+    category: Service
+    definition: Share of closed service cases resolved in more than 72 hours.
+    formula: SUM(sla_breaches) / SUM(cases_closed)
+    unit: percent
+    direction: lower_is_better
+    grain: any period
+    metric_view: wm_service_quality
+    measure: SLA Breach Rate
+    owner: WM Operations
+    certified: true
+  - id: avg_resolution_hours
+    name: Average Resolution Hours
+    dimension: Quality
+    category: Service
+    definition: Mean hours from case opened to case closed (closed cases only).
+    formula: SUM(avg_resolution_hours * cases_closed) / SUM(cases_closed)
+    unit: hours
+    direction: lower_is_better
+    grain: any period
+    metric_view: wm_service_quality
+    measure: Average Resolution Hours
+    owner: WM Operations
+    certified: true
+  - id: nps
+    name: NPS
+    dimension: Quality
+    category: Experience
+    definition: Relationship Net Promoter Score — % promoters (9-10) minus % detractors (0-6). Report with response count; below 30 responses treat as directional.
+    formula: (SUM(promoters) - SUM(detractors)) * 100 / SUM(nps_responses)
+    unit: score (-100..100)
+    direction: higher_is_better
+    grain: any period (quarter or longer recommended)
+    metric_view: wm_client_experience
+    measure: NPS
+    owner: WM Client Experience
+    certified: true
+  - id: attrition_rate
+    name: Attrition Rate (Annualized)
+    dimension: Quality
+    category: Clients
+    definition: Households that closed their relationship, per household-month, annualized.
+    formula: SUM(attrition_flag) * 12 / COUNT(household-months)
+    unit: percent
+    direction: lower_is_better
+    grain: any period
+    metric_view: wm_client_experience
+    measure: Attrition Rate (Annualized)
+    owner: WM Client Strategy
+    certified: true
+  - id: incremental_nna
+    name: Incremental NNA (Campaign)
+    dimension: Quantity
+    category: Impact
+    definition: Difference-in-differences estimate of extra net new assets per treated household per month versus a randomized control group, with 95% bootstrap confidence interval.
+    formula: (post_T - pre_T) - (post_C - pre_C), household-level means
+    unit: CAD per household per month
+    direction: higher_is_better
+    grain: campaign
+    metric_view: gold.campaign_impact_results
+    measure: did_estimate
+    owner: WM Analytics
+    certified: true

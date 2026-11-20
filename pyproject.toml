@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["wm_common*"]
+
+[project]
+name = "wm-performance-lakehouse"
+version = "1.0.0"
+description = "Wealth Management performance reporting lakehouse on Databricks: medallion pipelines, semantic layer, dashboards, incremental-impact analytics and self-serve tools"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "pandas>=2.0", "pyyaml>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyspark==3.5.3", "pyarrow>=14", "ruff>=0.5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -p no:warnings"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["src/self_serve/app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E402", "E501"]
+[tool.ruff.lint.per-file-ignores]
+# spark / dbutils / display / dlt globals are injected by the Databricks runtime
+"src/{pipelines,data_generator,semantic,setup,ops,analytics}/**" = ["F821"]

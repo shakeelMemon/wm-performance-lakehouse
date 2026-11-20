@@ -1,0 +1,65 @@
+# Metric view: assets, flows and revenue (grain of source: month x advisor x segment x program x account type)
+# NOTE: AUM is semi-additive. "Month-End AUM" is correct when sliced to one month; across
+# several months use "Average AUM". Ratios below are written so they stay correct for any
+# number of months selected.
+version: 0.1
+source: __CATALOG__.wm_gold.fct_aum_rollforward_monthly
+joins:
+  - name: advisor
+    source: __CATALOG__.wm_gold.dim_advisor
+    on: source.advisor_id = advisor.advisor_id
+  - name: cal
+    source: __CATALOG__.wm_gold.dim_date
+    on: source.month_start = cal.date_key
+dimensions:
+  - name: Month
+    expr: source.month_start
+  - name: Fiscal Year
+    expr: cal.fiscal_year
+  - name: Fiscal Quarter
+    expr: cal.fiscal_period_label
+  - name: Region
+    expr: source.region
+  - name: Branch
+    expr: source.branch_name
+  - name: Advisor
+    expr: advisor.advisor_name
+  - name: Advisor ID
+    expr: source.advisor_id
+  - name: Client Segment
+    expr: source.segment
+  - name: Program
+    expr: source.program
+  - name: Account Type
+    expr: source.account_type
+  - name: Revenue Model
+    expr: source.revenue_model
+measures:
+  - name: Beginning AUM
+    expr: SUM(source.begin_aum_cad)
+  - name: Month-End AUM
+    expr: SUM(source.end_aum_cad)
+  - name: Average AUM
+    expr: SUM((source.begin_aum_cad + source.end_aum_cad) / 2) / COUNT(DISTINCT source.month_start)
+  - name: Net New Assets
+    expr: SUM(source.net_flows_cad)
+  - name: Gross Inflows
+    expr: SUM(source.gross_inflows_cad)
+  - name: Gross Outflows
+    expr: SUM(source.gross_outflows_cad)
+  - name: Market Movement
+    expr: SUM(source.market_movement_cad)
+  - name: Fee Revenue
+    expr: SUM(source.fee_revenue_cad)
+  - name: Commission Revenue
+    expr: SUM(source.commission_revenue_cad)
+  - name: Total Revenue
+    expr: SUM(source.total_revenue_cad)
+  - name: Organic Growth Rate (Annualized)
+    expr: try_divide(SUM(source.net_flows_cad) * 12, SUM(source.begin_aum_cad))
+  - name: Return on Assets (bps)
+    expr: try_divide(SUM(source.total_revenue_cad) * 12 * 10000, SUM((source.begin_aum_cad + source.end_aum_cad) / 2))
+  - name: New Accounts
+    expr: SUM(source.new_accounts)
+  - name: Closed Accounts
+    expr: SUM(source.closed_accounts)

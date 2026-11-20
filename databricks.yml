@@ -1,0 +1,70 @@
+# Databricks Asset Bundle: Wealth Management Performance & Reporting Lakehouse
+# Deploy:   databricks bundle deploy -t dev
+# Bootstrap (one-off): databricks bundle run wm_bootstrap -t dev
+# Daily:    databricks bundle run wm_daily_reporting -t dev
+bundle:
+  name: wm-performance-lakehouse
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds every WM schema
+    default: wm_reporting_dev
+  warehouse_id:
+    description: SQL warehouse used by dashboards, SQL tasks, alerts and the self-serve app
+    lookup:
+      warehouse: "WM Reporting Warehouse"
+  data_scale:
+    description: Synthetic data scale preset (tiny | small | medium | large)
+    default: medium
+  notification_email:
+    description: Where job failure / SLA-breach notifications go
+    default: wm-data-team@example.com
+  business_group:
+    description: Account group for business consumers (semantic layer + dashboards)
+    default: wm_business_users
+  analyst_group:
+    description: Account group for analysts (gold + semantic)
+    default: wm_analysts
+  engineer_group:
+    description: Account group for data engineers (all layers)
+    default: wm_data_engineers
+  leadership_group:
+    description: Account group that sees every advisor book (bypasses row filter)
+    default: wm_leadership
+  prod_service_principal:
+    description: Application ID of the service principal that owns and runs prod resources
+    default: 00000000-0000-0000-0000-000000000000
+
+targets:
+  dev:
+    default: true
+    workspace:
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: wm_reporting_dev
+      data_scale: small
+
+  test:
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: wm_reporting_test
+      data_scale: small
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: wm_reporting
+      data_scale: medium
+    run_as:
+      service_principal_name: ${var.prod_service_principal}
+    permissions:
+      - group_name: ${var.engineer_group}
+        level: CAN_MANAGE
+      - group_name: ${var.analyst_group}
+        level: CAN_VIEW

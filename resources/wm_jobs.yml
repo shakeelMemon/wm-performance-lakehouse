@@ -1,0 +1,127 @@
+resources:
+  jobs:
+    # ------------------------------------------------------------------------------------
+    # One-off (re-runnable) bootstrap: backfill history, build every layer, apply governance
+    # ------------------------------------------------------------------------------------
+    wm_bootstrap:
+      name: "[${bundle.target}] WM - Bootstrap history & platform"
+      max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: scale
+          default: ${var.data_scale}
+      tasks:
+        - task_key: land_history
+          notebook_task:
+            notebook_path: ../src/data_generator/generate_wm_data.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              mode: history
+              scale: "{{job.parameters.scale}}"
+        - task_key: build_medallion
+          depends_on: [ { task_key: land_history } ]
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.wm_reporting_pipeline.id}
+            full_refresh: true
+        - task_key: publish_semantic_layer
+          depends_on: [ { task_key: build_medallion } ]
+          notebook_task:
+            notebook_path: ../src/semantic/publish_semantic_layer.py
+            base_parameters: { catalog: "{{job.parameters.catalog}}" }
+        - task_key: apply_governance
+          depends_on:
+            - task_key: publish_semantic_layer
+            - task_key: data_health_checks
+            - task_key: incremental_impact
+          notebook_task:
+            notebook_path: ../src/setup/apply_governance.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              business_group: ${var.business_group}
+              analyst_group: ${var.analyst_group}
+              engineer_group: ${var.engineer_group}
+              leadership_group: ${var.leadership_group}
+        - task_key: data_health_checks
+          depends_on: [ { task_key: build_medallion } ]
+          notebook_task:
+            notebook_path: ../src/ops/data_health_checks.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              pipeline_id: ${resources.pipelines.wm_reporting_pipeline.id}
+              fail_on_critical: "false"
+        - task_key: incremental_impact
+          depends_on: [ { task_key: build_medallion } ]
+          notebook_task:
+            notebook_path: ../src/analytics/incremental_impact.py
+            base_parameters: { catalog: "{{job.parameters.catalog}}" }
+      email_notifications:
+        on_failure: [ "${var.notification_email}" ]
+
+    # ------------------------------------------------------------------------------------
+    # Daily production run (06:30 Toronto, business days)
+    # ------------------------------------------------------------------------------------
+    wm_daily_reporting:
+      name: "[${bundle.target}] WM - Daily performance reporting"
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      schedule:
+        quartz_cron_expression: "0 30 6 ? * MON-FRI"
+        timezone_id: America/Toronto
+        pause_status: PAUSED          # unpause in prod once bootstrap has run
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 3600
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: scale
+          default: ${var.data_scale}
+      tasks:
+        - task_key: land_daily_files
+          notebook_task:
+            notebook_path: ../src/data_generator/generate_wm_data.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              mode: incremental
+              scale: "{{job.parameters.scale}}"
+        - task_key: refresh_medallion
+          depends_on: [ { task_key: land_daily_files } ]
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.wm_reporting_pipeline.id}
+        - task_key: publish_semantic_layer
+          depends_on: [ { task_key: refresh_medallion } ]
+          notebook_task:
+            notebook_path: ../src/semantic/publish_semantic_layer.py
+            base_parameters: { catalog: "{{job.parameters.catalog}}" }
+        - task_key: data_health_checks
+          depends_on: [ { task_key: refresh_medallion } ]
+          notebook_task:
+            notebook_path: ../src/ops/data_health_checks.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              pipeline_id: ${resources.pipelines.wm_reporting_pipeline.id}
+              fail_on_critical: "true"
+        - task_key: is_monday
+          depends_on: [ { task_key: data_health_checks } ]
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.start_time.iso_weekday}}"
+            right: "1"
+        - task_key: incremental_impact
+          depends_on: [ { task_key: is_monday, outcome: "true" } ]
+          notebook_task:
+            notebook_path: ../src/analytics/incremental_impact.py
+            base_parameters: { catalog: "{{job.parameters.catalog}}" }
+        - task_key: refresh_dashboard
+          depends_on:
+            - task_key: data_health_checks
+            - task_key: publish_semantic_layer
+          dashboard_task:
+            dashboard_id: ${resources.dashboards.wm_performance_dashboard.id}
+            warehouse_id: ${var.warehouse_id}
+      email_notifications:
+        on_failure: [ "${var.notification_email}" ]
+        on_duration_warning_threshold_exceeded: [ "${var.notification_email}" ]

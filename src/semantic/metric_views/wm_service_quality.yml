@@ -1,0 +1,25 @@
+# Metric view: service operations (grain of source: month x region x category x channel)
+version: 0.1
+source: __CATALOG__.wm_gold.fct_service_quality_monthly
+dimensions:
+  - name: Month
+    expr: month_start
+  - name: Region
+    expr: region
+  - name: Case Category
+    expr: category
+  - name: Channel
+    expr: channel
+measures:
+  - name: Cases Opened
+    expr: SUM(cases_opened)
+  - name: Cases Closed
+    expr: SUM(cases_closed)
+  - name: Open Backlog
+    expr: SUM(cases_open)
+  - name: Average Resolution Hours
+    expr: try_divide(SUM(avg_resolution_hours * cases_closed), SUM(cases_closed))
+  - name: SLA Breaches
+    expr: SUM(sla_breaches)
+  - name: SLA Breach Rate
+    expr: try_divide(SUM(sla_breaches), SUM(cases_closed))
