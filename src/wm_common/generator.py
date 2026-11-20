@@ -702,7 +702,7 @@ def write_landing(frames: dict[str, pd.DataFrame], base_path: str, since: str | 
             path = os.path.join(folder, f"part-{suffix}.{ext}")
             part = part.reset_index(drop=True)
             if ext == "parquet":
-                part.to_parquet(path, index=False)
+                part.to_parquet(path, index=False, coerce_timestamps="us", allow_truncated_timestamps=True)
             elif ext == "csv":
                 part.to_csv(path, index=False)
             else:
